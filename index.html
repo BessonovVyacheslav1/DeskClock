@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Документация: Desktop Clock</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        h1, h2, h3 {
+            color: #1a2a45;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        h1 {
+            text-align: center;
+        }
+        code {
+            background-color: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: "Consolas", "Monaco", monospace;
+            font-size: 0.95em;
+        }
+        pre {
+            background-color: #2d2d2d;
+            color: #f1f1f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        .container {
+            padding: 10px;
+        }
+        .note {
+            background-color: #fffbdd;
+            border-left: 5px solid #ffca28;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <h1>Документация по проекту "Desktop Clock"</h1>
+
+        <h2>Общее описание</h2>
+        <p>
+            <b>Desktop Clock</b> — это легковесный виджет для рабочего стола Windows, который отображает текущее время с помощью иконок обычных папок. Проект представляет собой набор скриптов и ресурсов, объединенных в один установочный `.exe` файл.
+        </p>
+        <p>
+            Основная идея заключается в том, чтобы каждую минуту обновлять иконки четырех папок на рабочем столе, каждая из которых соответствует одной цифре текущего времени (например, для 12:45 папки примут иконки "1", "2", "4", "5").
+        </p>
+
+        <hr>
+
+        <h2>Состав проекта</h2>
+        <p>Проект состоит из нескольких ключевых файлов, работающих вместе:</p>
+        <ul>
+            <li><b>info.vbs:</b> Мини-скрипт, который запускается первым. Он показывает информационное окно с описанием программы и кнопками "ОК" / "Отмена", позволяя пользователю подтвердить или прервать установку.</li>
+            <li><b>Install-Clock.ps1:</b> Основной установочный скрипт, написанный на PowerShell. Он выполняет всю логику установки: создает папки, копирует ресурсы, настраивает пути и создает задачу в Планировщике задач Windows.</li>
+            <li><b>time.vbs:</b> "Движок" виджета. Этот VBScript запускается каждую минуту Планировщиком задач. Он получает текущее время, определяет нужные иконки для каждой цифры и применяет их к папкам на рабочем столе.</li>
+            <li><b>Update Folder Icons.xml:</b> Шаблон задачи для Планировщика. `Install-Clock.ps1` использует его для создания задачи, которая будет запускать `time.vbs` ежеминутно.</li>
+            <li><b>Файлы иконок (*.ico):</b> Набор из 11 иконок (<code>0.ico</code> - <code>9.ico</code> и <code>o.ico</code>), которые используются для отображения цифр и разделителя.</li>
+            <li><b>Установщик .exe:</b> Финальный файл, созданный с помощью WinRAR SFX. Он содержит все вышеперечисленные файлы и автоматизирует весь процесс установки.</li>
+        </ul>
+
+        <hr>
+
+        <h2>Процесс установки</h2>
+        <p>Когда пользователь запускает финальный <b>.exe</b> файл, происходит следующее:</p>
+        <ol>
+            <li>Запускается <code>info.vbs</code>, показывая приветственное окно.</li>
+            <li>Если пользователь нажимает "Отмена", процесс прерывается.</li>
+            <li>Если пользователь нажимает "ОК", SFX-архив распаковывает все файлы во временную системную папку.</li>
+            <li>Запускается основной скрипт <code>Install-Clock.ps1</code> с правами администратора.</li>
+            <li>Скрипт создает на рабочем столе папки: <code>HH</code>, <code>H</code>, <code>o</code>, <code>MM</code>, <code>M</code>.</li>
+            <li>В папке <code>%LOCALAPPDATA%\DesktopClock</code> создается папка для хранения ресурсов.</li>
+            <li>Все иконки и скрипт <code>time.vbs</code> копируются в эту папку.</li>
+            <li><code>Install-Clock.ps1</code> автоматически изменяет пути внутри <code>time.vbs</code> и <code>Update Folder Icons.xml</code> на актуальные.</li>
+            <li>Настроенная задача импортируется в Планировщик задач Windows.</li>
+            <li>Кэш иконок рабочего стола обновляется, чтобы изменения вступили в силу.</li>
+            <li>После успешного завершения скрипта временная папка со всеми файлами автоматически удаляется.</li>
+        </ol>
+
+        <hr>
+
+        <h2>Технические детали и финальный код</h2>
+
+        <h3>info.vbs (Информационный скрипт)</h3>
+        <p>Показывает диалоговое окно для подтверждения установки. Возвращает код выхода 0 (ОК) или 1 (Отмена), который используется SFX-архиватором для принятия решения о продолжении.</p>
+<pre><code>' --- Настройки текста ---
+Dim title, message
+title = "Установка Desktop Clock"
+message = "Сейчас будет установлен виджет 'Desktop Clock'." &amp; vbCrLf &amp; vbCrLf
+message = message &amp; "Он использует 5 папок на рабочем столе для отображения времени." &amp; vbCrLf &amp; vbCrLf
+message = message &amp; "Продолжить установку?"
+
+' --- Отображение окна и обработка выбора ---
+Dim userChoice
+userChoice = MsgBox(message, vbOKCancel + vbQuestion, title)
+
+' Проверяем, что нажал пользователь
+If userChoice = vbOK Then
+    ' Если "ОК", выходим с кодом 0 (успех, продолжаем)
+    WScript.Quit(0)
+Else
+    ' Если "Отмена" или закрыл окно, выходим с кодом 1 (отмена)
+    WScript.Quit(1)
+End If
+</code></pre>
+
+        <h3>time.vbs (Скрипт обновления иконок)</h3>
+        <p>Основная логика виджета. Запускается каждую минуту для обновления иконок папок. Должен быть сохранен в кодировке **ANSI (Windows-1251)**.</p>
+<pre><code>' Отключаем вывод ошибок на экран, чтобы скрипт работал в фоне без окон
+On Error Resume Next
+
+Set objShell = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
+
+' Пути к папкам на рабочем столе
+Dim desktopPath
+desktopPath = objShell.ExpandEnvironmentStrings("%USERPROFILE%\Desktop")
+
+Dim folderHH, folderH, folderMM, folderM
+folderHH = desktopPath &amp; "\HH"
+folderH  = desktopPath &amp; "\H"
+folderMM = desktopPath &amp; "\MM"
+folderM  = desktopPath &amp; "\M"
+
+' Путь к иконкам (он будет заменен установочным скриптом)
+Dim icon_path
+icon_path = "C:\Ico\NumbersFolder" ' Этот путь заменится при установке
+
+' Получаем текущее время с ведущими нулями
+Dim currentHour, currentMinute
+currentHour   = Right("0" &amp; Hour(Now), 2)
+currentMinute = Right("0" &amp; Minute(Now), 2)
+
+' Разделяем на отдельные цифры
+Dim h1, h2, m1, m2
+h1 = Mid(currentHour, 1, 1)
+h2 = Mid(currentHour, 2, 1)
+m1 = Mid(currentMinute, 1, 1)
+m2 = Mid(currentMinute, 2, 1)
+
+' Функция для смены иконки у папки
+Sub ChangeIcon(folderPath, iconName)
+    If Not fso.FolderExists(folderPath) Then Exit Sub
+
+    Dim desktopIniPath
+    desktopIniPath = folderPath &amp; "\desktop.ini"
+    
+    ' Снимаем атрибуты с папки, чтобы можно было в ней работать
+    fso.GetFolder(folderPath).Attributes = fso.GetFolder(folderPath).Attributes And Not 1 ' Снимаем ReadOnly
+
+    ' Удаляем старый desktop.ini, если он есть
+    If fso.FileExists(desktopIniPath) Then
+        fso.GetFile(desktopIniPath).Attributes = 0 ' Снимаем все атрибуты с файла
+        fso.DeleteFile desktopIniPath, True
+    End If
+
+    ' Создаем новый desktop.ini
+    Dim desktopIniFile
+    Set desktopIniFile = fso.CreateTextFile(desktopIniPath, True)
+    desktopIniFile.WriteLine "[.ShellClassInfo]"
+    desktopIniFile.WriteLine "IconResource=" &amp; icon_path &amp; "\" &amp; iconName &amp; ".ico,0"
+    desktopIniFile.Close
+
+    ' Устанавливаем атрибуты: Скрытый (2) и Системный (4) для файла
+    fso.GetFile(desktopIniPath).Attributes = 2 + 4
+    
+    ' Устанавливаем атрибут Только для чтения (1) для папки, чтобы Windows применила иконку
+    fso.GetFolder(folderPath).Attributes = fso.GetFolder(folderPath).Attributes Or 1
+End Sub
+
+' Применяем иконки
+ChangeIcon folderHH, h1
+ChangeIcon folderH,  h2
+ChangeIcon folderMM, m1
+ChangeIcon folderM,  m2
+
+' Завершаем работу скрипта
+WScript.Quit
+</code></pre>
+
+        <h3>Install-Clock.ps1 (Скрипт установки)</h3>
+        <p>Полный код установщика на PowerShell. Должен быть сохранен в кодировке **UTF-8 with BOM**.</p>
+<pre><code>#requires -Version 5.1
+#requires -RunAsAdministrator
+
+function Write-Log {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Write-Host "[$timestamp] [$Level] $Message"
+}
+
+try {
+    Write-Log "Начало установки виджета часов..."
+
+    # --- 1. Определение путей и переменных ---
+    $scriptRoot = $PSScriptRoot
+    $desktopPath = [Environment]::GetFolderPath('Desktop')
+    
+    $assetDir = Join-Path $env:LOCALAPPDATA "DesktopClock"
+    
+    $clockFolders = @("HH", "H", "o", "MM", "M")
+    
+    $sourceVbs = Join-Path $scriptRoot "time.vbs"
+    $sourceXml = Join-Path $scriptRoot "Update Folder Icons.xml"
+    $iconFiles = Get-ChildItem -Path $scriptRoot -Filter "*.ico"
+
+    if (-not (Test-Path $sourceVbs) -or -not (Test-Path $sourceXml) -or $iconFiles.Count -eq 0) {
+        throw "Ошибка: Не все файлы (time.vbs, Update Folder Icons.xml, *.ico) найдены."
+    }
+
+    # --- 2. Создание папок и копирование файлов ---
+    Write-Log "Создание папки для ресурсов: $assetDir"
+    if (-not (Test-Path $assetDir)) {
+        New-Item -Path $assetDir -ItemType Directory | Out-Null
+    }
+
+    Write-Log "Копирование иконок и VBS-скрипта..."
+    Copy-Item -Path $iconFiles.FullName -Destination $assetDir -Force
+    Copy-Item -Path $sourceVbs -Destination $assetDir -Force
+    $vbsPathInAssets = Join-Path $assetDir "time.vbs"
+
+    # --- 3. Настройка файлов ---
+    Write-Log "Настройка VBS-скрипта..."
+    $vbsContent = Get-Content -Path $vbsPathInAssets -Raw
+    $vbsContent = $vbsContent -replace 'icon_path = ".*"', "icon_path = ""$assetDir"""
+    Set-Content -Path $vbsPathInAssets -Value $vbsContent -Force -Encoding Default
+
+    Write-Log "Настройка XML-файла для Планировщика задач..."
+    $xmlContent = Get-Content -Path $sourceXml -Raw
+    $xmlContent = $xmlContent -replace '&lt;Command&gt;time.vbs&lt;/Command&gt;', "&lt;Command&gt;$vbsPathInAssets&lt;/Command&gt;"
+    $tempXmlPath = Join-Path $env:TEMP "TaskDefinition.xml"
+    Set-Content -Path $tempXmlPath -Value $xmlContent -Encoding Unicode -Force
+
+    # --- 4. Создание папок на рабочем столе ---
+    Write-Log "Создание папок на рабочем столе..."
+    foreach ($folder in $clockFolders) {
+        $fullPath = Join-Path $desktopPath $folder
+        if (-not (Test-Path $fullPath)) {
+            New-Item -Path $fullPath -ItemType Directory | Out-Null
+        }
+    }
+    
+    # --- 5. Назначение иконки для папки "o" ---
+    Write-Log "Назначение иконки для папки 'o'..."
+    $oFolderPath = Join-Path $desktopPath "o"
+    $oIconPath = Join-Path $assetDir "o.ico"
+    $desktopIniPath = Join-Path $oFolderPath "desktop.ini"
+    $iniContent = @"
+[.ShellClassInfo]
+IconResource=$oIconPath,0
+"@
+    Set-Content -Path $desktopIniPath -Value $iniContent -Force
+    &amp; attrib.exe +H +S "$desktopIniPath"
+    &amp; attrib.exe +R "$oFolderPath"
+    
+    # --- 6. Импорт задачи в Планировщик задач ---
+    Write-Log "Импорт задачи 'Update Desktop Clock' в Планировщик..."
+    schtasks.exe /Create /TN "Update Desktop Clock" /XML "$tempXmlPath" /F
+    if ($LASTEXITCODE -ne 0) {
+        throw "Не удалось импортировать задачу в Планировщик."
+    }
+    
+    # --- 7. Обновление рабочего стола и очистка ---
+    Write-Log "Обновление кэша иконок оболочки..."
+    $csharpCode = @"
+    using System;
+    using System.Runtime.InteropServices;
+    public class ShellRefresher {
+        [DllImport("shell32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+        public static extern void SHChangeNotify(long wEventId, long uFlags, IntPtr dwItem1, IntPtr dwItem2);
+    }
+"@
+    Add-Type -TypeDefinition $csharpCode
+    [ShellRefresher]::SHChangeNotify(0x08000000, 0x0000, [System.IntPtr]::Zero, [System.IntPtr]::Zero)
+    
+    Write-Log "Очистка временных файлов..."
+    Remove-Item -Path $tempXmlPath -Force
+    Write-Log "Установка успешно завершена!" -Level "SUCCESS"
+}
+catch {
+    Write-Log "Произошла критическая ошибка:" -Level "ERROR"
+    Write-Log $_.Exception.Message -Level "ERROR"
+    Read-Host "Нажмите Enter, чтобы выйти."
+    exit 1
+}
+</code></pre>
+    </div>
+</body>
+</html>
