@@ -1,5 +1,6 @@
-# Desktop Clock
+<img width="1147" height="628" alt="image" src="https://github.com/user-attachments/assets/b077034a-56d9-4822-afe8-a22f4b89d3f5" />
 
+# Desktop Clock
 A lightweight Windows widget that displays the current time using desktop folder icons.
 
 ---
